@@ -1,0 +1,46 @@
+#+TITLE: A makefile for developing MediaWiki extensions
+
+Makefiles have a bad rap.
+
+I suspect this is because people developing with dynamic languages think of them as being something that is concerned with writing compiled code.  I imagine that to these developers, the mere mention of a makefile evokes floppy disks.
+
+But makefiles can be a very good way to organize a set of shell commands so that they can be executed reliably.
+
+In this document, we'll take [[https://github.com/ProfessionalWiki/ExternalContent/blob/b42788152e0ebdbb2c7e83ad3ea8f78a80d11953/Makefile][the makefile]] in [[https://github.com/ProfessionalWiki/ExternalContent/blob/master/Makefile][ProfessionalWiki's ExternalContent repository]] and show how, with a few updates, we can just copy it into place and use it to reliably run tests locally, via Github actions to help with continuous integration (CI), or in Gitlab jobs for CI pipelines.
+
+* The makefile
+
+#+begin_src makefile
+.PHONY: ci test cs phpunit phpcs stan psalm parser
+
+ci: test cs
+test: phpunit parser
+cs: phpcs stan psalm
+
+phpunit:
+	php ../../tests/phpunit/phpunit.php -c phpunit.xml.dist
+
+phpcs:
+	cd ../.. && vendor/bin/phpcs -p -s --standard=$(shell pwd)/phpcs.xml
+
+stan:
+	../../vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=2G
+
+psalm:
+	../../vendor/bin/psalm --config=psalm.xml
+
+parser:
+	php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
+#+end_src
+
+ProfessionalWiki has a makefile that fairly simple.  It provides one target (=ci=)—invoked with the command “make ci”—that you can use to test and analyse the code.  The =ci= target invokes the =test= and =cs= targets which, in turn invoke tests with [[https://phpunit.de/][phpunit]] and the [[https://www.mediawiki.org/wiki/Parser_tests][MediaWiki parser test framework]] and then the code analysis tools [[https://squizlabs.github.io/PHP_CodeSniffer/analysis/][PHP CodeSniffer]], [[https://phpstan.org/][PHPStan]], and [[https://psalm.dev/][Psalm]], respectively.
+
+The makefile here captures several commands and makes execution of them simple.  For any extension that has unit tests and parser tests, this makefile will take care of them.
+
+** Example with SemanticOrganization
+
+I've forked the [[https://github.com/thaider/SemanticOrganization][SemanticOrganization extension]] and copied the Makefile from ProfessionalWiki's ExternalContent repository into it
+
+#+begin_src sh
+wget https://raw.githubusercontent.com/ProfessionalWiki/ExternalContent/master/Makefile
+#+end_src
