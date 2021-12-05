@@ -108,4 +108,48 @@ parser:
 		php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
 #+end_src
 
-A makefile will stop executing if a shell command returns a false value.  This means that we have to test for the thing that would cause our parser tests to fail—no =parserTests.txt= —and then run the tests if the tests for non-existance fails.
+A makefile will stop executing if a shell command returns a false value.  This means that we have to test for the thing that would cause our parser tests to fail — no =parserTests.txt= — and then run the tests if the tests for non-existance fails.
+
+** After /n/ runs
+We've changed the simple makefile to check for the support files before running the checks.
+
+This means we can execute =make= without any errors.  Good.
+
+The core of the file is still pretty simple, very similar to the original from ProfessionalWiki, but now it should be able to run in any MediaWiki extension that follows some simple standard layout conventions and will adapt to if the extension has phpunit tests or not, parser tests or not, etc.
+
+#+begin_src makefile
+ci: test cs
+test: phpunit parser
+cs: phpcs stan psalm
+
+phpunit:
+	test ! -f phpunit.xml.dist														||	\
+		php ../../tests/phpunit/phpunit.php -c phpunit.xml.dist
+
+phpcs:
+	test ! -f phpcs.xml															||	(	\
+		cd ../..																	&&	\
+		vendor/bin/phpcs -p -s --standard=$(shell pwd)/phpcs.xml						)
+
+stan:
+	test ! -f phpstan.neon															||	\
+		../../vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=2G
+
+psalm:
+	test ! -f psalm.xml																||	\
+		../../vendor/bin/psalm --config=psalm.xml
+
+parser:
+	test ! -f tests/parser/parserTests.txt											||	\
+		php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
+#+end_src
+
+** But what about running on Github?
+
+Github allows you to specify [[https://docs.github.com/en/actions][actions]] and these can be used check the code every time a comand runs.
+
+Let's create a github action that invokes
+
+# Local Variables:
+# org-src-preserve-indentation: t
+# End:
