@@ -9,3 +9,4 @@ resources/custom/scripts/custom.js
 resources/custom/styles/custom.scss
 resources/custom/styles/custom/*.scss
 resources/custom/fonts/*
+.phpunit.result.cache
