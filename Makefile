@@ -17,7 +17,8 @@ psalm:
 	../../vendor/bin/psalm --config=psalm.xml
 
 parser:
-	php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
+	test ! -f tests/parser/parserTests.txt														||	\
+		php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
 
 phpunit.xml.dist:
 	(																								\

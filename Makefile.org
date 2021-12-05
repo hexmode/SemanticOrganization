@@ -74,3 +74,38 @@ phpunit.xml.dist:
 This is suitably generic and will just run all the phpunit files found in the tests directory.  There are none right now, though, so no tests are executed.
 
 (It should be noted here that in this presentation, I'm only showing how to use makefiles, not how to write tests. Writing tests or providing more than the basic framework is left as an exercise for the developer.)
+
+** Second make run:
+
+Even though no tests are executed, we get to the next makefile target:
+#+begin_src sh
+$ make
+php ../../tests/phpunit/phpunit.php -c phpunit.xml.dist
+Using PHP 7.4.26
+PHPUnit 8.5.21 by Sebastian Bergmann and contributors.
+
+No tests executed!
+php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
+This is MediaWiki version 1.35.2 (2e18b74).
+
+PHP Warning:  fopen(tests/parser/parserTests.txt): failed to open stream: No such file or directory in .../tests/parser/TestFileReader.php on line 61
+MWException from line 64 of .../tests/parser/TestFileReader.php: Couldn't open file 'tests/parser/parserTests.txt'
+
+#0 .../tests/parser/TestFileReader.php(39): TestFileReader->__construct()
+#1 .../tests/parser/ParserTestRunner.php(702): TestFileReader::read()
+#2 .../tests/parser/parserTests.php(189): ParserTestRunner->runTestsFromFiles()
+#3 .../maintenance/doMaintenance.php(107): ParserTestsMaintenance->execute()
+#4 .../tests/parser/parserTests.php(200): require_once('...')
+#5 {main}
+make: *** [Makefile:20: parser] Error 1
+#+end_src
+
+Again, we are missinsg a file.  This time, though, it is the =parserTests.txt= file.  Since there is no use running parser tests if none exist and it is easier to check for the existance of a file, lets add that codition to the parser target:
+
+#+begin_src makefile
+parser:
+	test ! -f tests/parser/parserTests.txt														||	\
+		php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
+#+end_src
+
+A makefile will stop executing if a shell command returns a false value.  This means that we have to test for the thing that would cause our parser tests to fail—no =parserTests.txt= —and then run the tests if the tests for non-existance fails.
