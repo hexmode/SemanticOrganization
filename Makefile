@@ -4,7 +4,7 @@ ci: test cs
 test: phpunit parser
 cs: phpcs stan psalm
 
-phpunit:
+phpunit: phpunit.xml.dist
 	php ../../tests/phpunit/phpunit.php -c phpunit.xml.dist
 
 phpcs:
@@ -18,3 +18,14 @@ psalm:
 
 parser:
 	php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
+
+phpunit.xml.dist:
+	(																								\
+		echo '<phpunit colors="true">'															&&	\
+		echo '<testsuites>'																		&&	\
+		echo '<testsuite name="All">'															&&	\
+		echo '<directory>tests</directory>'														&&	\
+		echo '</testsuite>'																		&&	\
+		echo '</testsuites>'																	&&	\
+		echo '</phpunit>'																			\
+	) > $@

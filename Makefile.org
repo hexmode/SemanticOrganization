@@ -44,3 +44,33 @@ I've forked the [[https://github.com/thaider/SemanticOrganization][SemanticOrgan
 #+begin_src sh
 wget https://raw.githubusercontent.com/ProfessionalWiki/ExternalContent/master/Makefile
 #+end_src
+
+** First make run:
+
+The first execution of make is unsatisfactory:
+#+begin_src sh
+$ make
+php ../../tests/phpunit/phpunit.php -c phpunit.xml.dist
+Using PHP 7.4.26
+Could not read "phpunit.xml.dist".
+make: *** [Makefile:8: phpunit] Error 1
+#+end_src
+
+Well, this exactly what makefiles are made for, fulfilling dependencies.  Let's add a target so that if the phpunit.xml.dist is missing, we create one:
+
+#+begin_src makefile
+phpunit.xml.dist:
+	(																								\
+		echo '<phpunit colors="true">'															&&	\
+		echo '<testsuites>'																		&&	\
+		echo '<testsuite name="All">'															&&	\
+		echo '<directory>tests</directory>'												&&	\
+		echo '</testsuite>'																		&&	\
+		echo '</testsuites>'																	&&	\
+		echo '</phpunit>'																			\
+	) > $@
+#+end_src
+
+This is suitably generic and will just run all the phpunit files found in the tests directory.  There are none right now, though, so no tests are executed.
+
+(It should be noted here that in this presentation, I'm only showing how to use makefiles, not how to write tests. Writing tests or providing more than the basic framework is left as an exercise for the developer.)
