@@ -148,7 +148,15 @@ parser:
 
 Github allows you to specify [[https://docs.github.com/en/actions][actions]] and these can be used check the code every time a comand runs.
 
-Let's create a github action that invokes
+But so far, our makefile has depended upon a MediaWiki that is already checked out and set up.  How can we use it on github without copying over our development environment?
+
+Containers (of course!)
+
+Let's copy the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/master/.github/workflows/main.yml][main.yml file from SemanticMediaWiki]] and tweak it for our own use.  It really doesn't take much, just change the =EXT_NAME= env section to our extension, modify the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/1348700de6427c5a7445bdaf4f6bb1a287e6ae95/.github/workflows/main.yml#L78][construction of the composer.local.json]], and away we go!
+
+Finally, let's change the [[https://github.com/hexmode/SemanticOrganization/blob/b13f6242f48d6c5893497c6818bd2b325e0e3369/.github/workflows/main.yml#L112][last step]], where the tests are run, to invoke our make file.
+
+Works like a dream.
 
 # Local Variables:
 # org-src-preserve-indentation: t
