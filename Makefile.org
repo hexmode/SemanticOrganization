@@ -156,7 +156,13 @@ Let's copy the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/mas
 
 Finally, let's change the [[https://github.com/hexmode/SemanticOrganization/blob/b13f6242f48d6c5893497c6818bd2b325e0e3369/.github/workflows/main.yml#L112][last step]], where the tests are run, to invoke our make file.
 
-Works like a dream.
+[[https://github.com/hexmode/SemanticOrganization/runs/4424862019][Works like a dream]].
+
+** But, wait, what about using a container on our local system?
+
+Good point.  While a container is use to set up the filesystem for the running the tests, the Github workflow takes the time to set up a database for the wiki and create a =LocalSettings.php= file.
+
+This means that there is a consistent, predictable test setup for Github runs, but on our local system we're still depending on whatever development setup we have in place.  We'd like to use the same setup for both Github and our local development.  To do that, we'll first copy the steps from the Github steps in main.yml to our Makefile.
 
 # Local Variables:
 # org-src-preserve-indentation: t
