@@ -162,7 +162,9 @@ Finally, let's change the [[https://github.com/hexmode/SemanticOrganization/blob
 
 Good point.  While a container is use to set up the filesystem for the running the tests, the Github workflow takes the time to set up a database for the wiki and create a =LocalSettings.php= file.
 
-This means that there is a consistent, predictable test setup for Github runs, but on our local system we're still depending on whatever development setup we have in place.  We'd like to use the same setup for both Github and our local development.  To do that, we'll first copy the steps from the Github steps in main.yml to our Makefile.
+This means that there is a consistent, predictable test setup for Github runs, but on our local system we're still depending on whatever development setup we have in place.  We'd like to use the same setup for both Github and our local development.  To do that, we'll first copy the steps from the Github steps in [[https://github.com/hexmode/SemanticOrganization/commit/7d9e6788c4178233f66b2cb851773cb33a7e1bd8][main.yml to our Makefile]].
+
+After we're sure that [[https://github.com/hexmode/SemanticOrganization/runs/4438835177][it still works on GitHub]], let's set our makefile so that when it is run locally.  We can do this using the [[https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables][GITHUB_ACTIONS environment variable]].  When it is set to true, we're running on Github.  So we'll make sure it defaults to false.
 
 # Local Variables:
 # org-src-preserve-indentation: t

@@ -1,3 +1,7 @@
+ifndef VERBOSE
+.SILENT:
+endif
+
 .PHONY: ci test cs phpunit phpcs stan psalm parser verifyExtName
 
 MW_INSTALL_PATH  ?= /var/www/html
@@ -13,13 +17,18 @@ MW_DB_USER       ?= wiki
 MW_DB_PWD        ?= wiki
 MW_DB_NAME       ?= wiki
 COMPOSER_VERSION ?= 2
+IN_CONTAINER     ?= false
 
-verifyExtName:
-	test "${EXT_NAME}" != "ext-name-not-set"				||	(	\
-		echo "You must set EXT_NAME to use this Makefile."	&&	\
-		exit 1													\
-	)
+# If this is being run on github, then we're in a container and
+# GITHUB_ACTIONS is true.
+ifeq ("${GITHUB_ACTIONS}","true")
+IN_CONTAINER := true
+endif
 
+# If we're in a container then use the default set of targets.
+# Scroll down to the line that starts with "else" to see what
+# happens if we are not in a container.
+ifeq ("${IN_CONTAINER}","true")
 ci: test cs
 test: phpunit parser
 cs: phpcs stan psalm
@@ -49,6 +58,12 @@ parser:
 	test ! -f tests/parser/parserTests.txt					||	\
 		php ${MW_INSTALL_PATH}/tests/parser/parserTests.php		\
 			--file=tests/parser/parserTests.txt
+
+verifyExtName:
+	test "${EXT_NAME}" != "ext-name-not-set"				||	(	\
+		echo "You must set EXT_NAME to use this Makefile."	&&	\
+		exit 1													\
+	)
 
 getComposer:
 	apt update
@@ -98,3 +113,28 @@ installSemanticMediaWiki:
 		${MW_INSTALL_PATH}/LocalSettings.php
 	tail -n5 ${MW_INSTALL_PATH}/LocalSettings.php
 	php ${MW_INSTALL_PATH}/maintenance/update.php --quick
+
+testTwo:
+	echo $@
+
+testOne:
+	echo $@
+
+else
+# We are not in a container (or, at least, IN_CONTAINER is not
+# set).  In this case, since we want the other targets to only be
+# used in a container, we'll set up the container and call
+# ourself in the container.
+
+# Since MAKECMDGOALS contains whatever the first target is, we
+# make the first target from the command line our default target
+# (but only if we aren't already calling "inContainer").
+ifneq ("$(word 1,${MAKECMDGOALS})","inContainer")
+$(word 1,${MAKECMDGOALS}):
+	${MAKE} inContainer goals="${MAKECMDGOALS}"
+endif
+
+inContainer:
+	${MAKE} ${goals} IN_CONTAINER=true
+
+endif
