@@ -52,19 +52,19 @@ setupLinks: verifyExtName
 
 ciComposer ?= ${ciPath}/composer
 .PHONY: getComposer
-getComposer:
-	test -f ${ciComposer}								||	(	\
-		apt update											&&	\
-		apt install -y unzip								&&	\
-		php -r "copy('https://getcomposer.org/installer', 		\
-				'installer');"								&&	\
-		php -r "copy('https://composer.github.io/installer.sig',\
-				 'expected');"								&&	\
-		echo `cat expected` " installer" | sha384sum -c -	&&	\
-		php installer --${COMPOSER_VERSION}					&&	\
-		rm -f installer expected							&&	\
-		mv composer.phar ${ciComposer}							\
-	)
+getComposer: ${ciComposer}
+${ciComposer}:
+	apt update
+	apt install -y unzip
+	php -r "copy('https://getcomposer.org/installer', 			\
+			'installer');"
+	php -r "copy('https://composer.github.io/installer.sig',	\
+			 'expected');"
+	echo `cat expected` " installer" | sha384sum -c -
+	php installer --${COMPOSER_VERSION}
+	rm -f installer expected
+	mv composer.phar $@
+	touch $@
 
 mediaWikiComposerUpdate:
 	COMPOSER=composer.local.json ${ciComposer} require			\

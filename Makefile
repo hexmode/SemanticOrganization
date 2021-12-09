@@ -86,36 +86,30 @@ inContainer: ${lsPath} ${mwVendor}
 			${MAKE} -f Makefile.inContainer setupLinks ${goals}
 
 ${lsPath}: ${mwVendor} ${ciExtPath}/SemanticMediaWiki
-	test -f ${lsPath}									||	(	\
-		cid=`${dockerCli} create								\
-			$(foreach mount,${mounts},-v ${mount})				\
-			--env-file <(env -i									\
-				$(foreach var,${copyVars},${var}=$(${var})))	\
-			${containerID}`									&&	\
-		${dockerCli} start $$cid							&&	\
-		${dockerCli} exec -w /target $$cid						\
-				${MAKE} -f Makefile.inContainer					\
-					getComposer 								\
-					mediaWikiComposerUpdate						\
-					setupLinks									\
-					mediaWikiInstall							\
-					enableDebugOutput							\
-					installSemanticMediaWiki				&&	\
-		${dockerCli} rm -f $$cid								\
-	)
+	cid=`${dockerCli} create									\
+		$(foreach mount,${mounts},-v ${mount})					\
+		--env-file <(env -i										\
+			$(foreach var,${copyVars},${var}=$(${var})))		\
+		${containerID}`										&&	\
+	${dockerCli} start $$cid								&&	\
+	${dockerCli} exec -w /target $$cid							\
+			${MAKE} -f Makefile.inContainer						\
+				getComposer 									\
+				mediaWikiComposerUpdate							\
+				setupLinks										\
+				mediaWikiInstall								\
+				enableDebugOutput								\
+				installSemanticMediaWiki					&&	\
+	${dockerCli} rm -f $$cid
 	touch $@
 
-${mwVendor}: ${ciPath}
-	test -d ${mwVendor}									||	(	\
-		cid=`${dockerCli} create ${containerID}`			&&	\
-		${dockerCli} cp "$$cid:${MW_INSTALL_PATH}/vendor"		\
-			${mwVendor}										&&	\
-		${dockerCli} rm -f $$cid								\
-	)
+${mwVendor}:
+	mkdir -p ${ciPath}
+	cid=`${dockerCli} create ${containerID}`				&&	\
+	${dockerCli} cp "$$cid:${MW_INSTALL_PATH}/vendor"			\
+		${mwVendor}											&&	\
+	${dockerCli} rm -f $$cid
 	touch $@
-
-${ciPath}:
-	mkdir -p $@
 
 ${ciExtPath}/SemanticMediaWiki:
 	git clone ${smwGitUrl} $@
