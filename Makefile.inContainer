@@ -54,8 +54,6 @@ ciComposer ?= ${ciPath}/composer
 .PHONY: getComposer
 getComposer: ${ciComposer}
 ${ciComposer}:
-	apt update
-	apt install -y unzip
 	php -r "copy('https://getcomposer.org/installer', 			\
 			'installer');"
 	php -r "copy('https://composer.github.io/installer.sig',	\
@@ -63,6 +61,7 @@ ${ciComposer}:
 	echo `cat expected` " installer" | sha384sum -c -
 	php installer --${COMPOSER_VERSION}
 	rm -f installer expected
+	mkdir -p ${ciPath}
 	mv composer.phar $@
 	touch $@
 
