@@ -1,4 +1,5 @@
 !*.gitkeep
+*~
 .env
 .envrc
 conf
@@ -12,3 +13,7 @@ resources/custom/styles/custom.scss
 resources/custom/styles/custom/*.scss
 resources/custom/fonts/*
 .phpunit.result.cache
+
+# org mode by-products
+*.odt
+*.pdf
