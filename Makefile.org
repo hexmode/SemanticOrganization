@@ -12,6 +12,10 @@ But makefiles can be a very good way to organize a set of shell commands so that
 
 * The makefile
 
+** An example with SemanticOrganization
+
+To demonstrate this, I've forked the [[https://github.com/thaider/SemanticOrganization][SemanticOrganization extension]] and copied the =Makefile= from ProfessionalWiki's ExternalContent repository into it
+
 ProfessionalWiki has a makefile that fairly simple. It provides one target (=ci=)—invoked with the command “make ci”—that you can use to test and analyse the code. The =ci= target invokes the =test= and =cs= targets which, in turn invoke tests with [[https://phpunit.de/][phpunit]] and the [[https://www.mediawiki.org/wiki/Parser_tests][MediaWiki parser test framework]] and then the code analysis tools [[https://squizlabs.github.io/PHP_CodeSniffer/analysis/][PHP CodeSniffer]], [[https://phpstan.org/][PHPStan]], and [[https://psalm.dev/][Psalm]], respectively.
 
 #+begin_src makefile
@@ -38,10 +42,6 @@ parser:
 #+end_src
 
 The makefile here captures several commands and makes execution of them simple—just type =make= and away you go! For any extension that has unit tests and parser tests, this makefile will take care of them if you run it in your existing MediaWiki setup.
-
-** Example with SemanticOrganization
-
-To demonstrate this, I've forked the [[https://github.com/thaider/SemanticOrganization][SemanticOrganization extension]] and copied the =Makefile= from ProfessionalWiki's ExternalContent repository into it
 
 ** First make run:
 
@@ -151,53 +151,19 @@ But so far, our makefile has depended upon a MediaWiki that is already checked o
 
 Containers (of course!)
 
-You can see the main.yml file in my forked repository, but the important bit is that, except for the bit to check out and link the extension, I'm simply using the makefile targets. Anytime I change the makefile target, (for example, if I change =make ci=) then, after I have it working successfully on my local machine, I just push those changes—without making any to the main.yml—and my github CI is updated.
-#+begin_src yaml
-    steps:
-      - name: Checkout Extension
-        uses: actions/checkout@v2
-        with:
-          repository: hexmode/${{ env.EXT_NAME }}
-          path: ${{ env.EXT_NAME }}
+You can see the main.yml file in my forked repository.  I initially took the SMW main.yml file and adapted it. Here is the [[https://github.com/hexmode/SemanticOrganization/blob/1897dbc0a153ceddc11a890f658294a6781fd746/.github/workflows/main.yml][old main.yml]].
 
-      - name: Symlink extension
-        run: |
-          mkdir -p ${{ env.MW_EXT_PATH }}
-          ln -s `pwd`/${{ env.EXT_NAME }}                                      \
-            ${{ env.MW_EXT_PATH }}/${{ env.EXT_NAME }}
-          ls -ld ${{ env.MW_EXT_PATH }}/${{ env.EXT_NAME }}
+[[file:./images/screenshot-01.png]]
 
-      - name: Get Composer
-        run: |
-          cd ${{ env.EXT_NAME }}
-          make getComposer
+** But Makefiles
 
-      - name: MediaWiki Composer Update
-        run: |
-          cd ${{ env.EXT_NAME }}
-          make mediaWikiComposerUpdate
+But I'm talking about Makefiles, right?
 
-      - name: MediaWiki Install
-        run: |
-          cd ${{ env.EXT_NAME }}
-          make mediaWikiInstall
+So, I'll move the tasks to the Makefile and we'll be able to use Makefile targets from the
+github actions.
 
-      - name: Enable Debug Output
-        run: |
-          cd ${{ env.EXT_NAME }}
-          make enableDebugOutput
-
-      - name: Install SemanticMediaWiki
-        run: |
-          cd ${{ env.EXT_NAME }}
-          make installSemanticMediaWiki
-
-      - name: Run Tests
-        run: |
-          cd ${{ env.EXT_NAME }}
-          make ci
-
-#+end_src
+So, we move the actions to the Makefile and [[https://github.com/hexmode/SemanticOrganization/blob/028a37e3a39825793c6cad95f57a5269678a7517/.github/workflows/main.yml][use the tasks to call those targets]]:
+[[file:./images/screenshot-02.png]]
 
 [[https://github.com/hexmode/SemanticOrganization/runs/4424862019][Works like a dream]].
 
@@ -242,9 +208,29 @@ inContainer:
 endif
 #+end_src
 
-All that is left to do now is to put have the =inContainer= target create a container to run the Makefile in.
+All that is left to do now is to add an the =inContainer= target create a container to run the Makefile in.
+
+#+begin_src makefile
+copyVars := EXT_NAME MW_INSTALL_PATH MW_EXT_PATH DB_ROOT_USER	\
+	DB_ROOT_PWD MW_DB_TYPE MW_DB_SERVER MW_DB_PATH MW_DB_USER	\
+	MW_DB_PWD MW_DB_NAME MW_VER COMPOSER_VERSION
+
+mounts := "${PWD}:/target"										\
+			"${mwDotComposer}:/root/.cache/composer"			\
+			"${mwVendor}:${MW_INSTALL_PATH}/vendor"				\
+			"${ciDataPath}:${MW_DB_PATH}"						\
+			"${ciExtPath}/SemanticMediaWiki:${MW_EXT_PATH}/SemanticMediaWiki"
+
+inContainer: ${lsPath} ${mwVendor}
+	${dockerCli} run --rm -w /target							\
+		$(foreach mount,${mounts},-v ${mount})					\
+		--env-file <(env -i										\
+			$(foreach var,${copyVars},${var}=$(${var})))		\
+		${containerID}											\
+			${MAKE} -f Makefile.inContainer setupLinks ${goals}
 
 
+#+end_src
 
 # Local Variables:
 # org-src-preserve-indentation: t
