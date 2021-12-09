@@ -1,4 +1,6 @@
-#+TITLE: A makefile for developing MediaWiki extensions
+#+TITLE: A reliable test framework for local development and cloud-based continuious integration
+
+In this presentation, we'll take [[https://github.com/ProfessionalWiki/ExternalContent/blob/b42788152e0ebdbb2c7e83ad3ea8f78a80d11953/Makefile][the makefile]] in [[https://github.com/ProfessionalWiki/ExternalContent/blob/master/Makefile][ProfessionalWiki's ExternalContent repository]] and show how, with a few updates, we can just copy it into place and use it to reliably run tests locally, via Github actions to help with continuous integration (CI), or in Gitlab jobs for CI pipelines.
 
 Makefiles have a bad rap.
 
@@ -6,9 +8,11 @@ I suspect this is because people developing with dynamic languages think of them
 
 But makefiles can be a very good way to organize a set of shell commands so that they can be executed reliably.
 
-In this document, we'll take [[https://github.com/ProfessionalWiki/ExternalContent/blob/b42788152e0ebdbb2c7e83ad3ea8f78a80d11953/Makefile][the makefile]] in [[https://github.com/ProfessionalWiki/ExternalContent/blob/master/Makefile][ProfessionalWiki's ExternalContent repository]] and show how, with a few updates, we can just copy it into place and use it to reliably run tests locally, via Github actions to help with continuous integration (CI), or in Gitlab jobs for CI pipelines.
+I'll demonstrate this using [[https://github.com/hexmode/SemanticOrganization/][my fork of the SemanticOrganization extension]].
 
 * The makefile
+
+ProfessionalWiki has a makefile that fairly simple.  It provides one target (=ci=)—invoked with the command “make ci”—that you can use to test and analyse the code.  The =ci= target invokes the =test= and =cs= targets which, in turn invoke tests with [[https://phpunit.de/][phpunit]] and the [[https://www.mediawiki.org/wiki/Parser_tests][MediaWiki parser test framework]] and then the code analysis tools [[https://squizlabs.github.io/PHP_CodeSniffer/analysis/][PHP CodeSniffer]], [[https://phpstan.org/][PHPStan]], and [[https://psalm.dev/][Psalm]], respectively.
 
 #+begin_src makefile
 .PHONY: ci test cs phpunit phpcs stan psalm parser
@@ -33,13 +37,11 @@ parser:
 	php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
 #+end_src
 
-ProfessionalWiki has a makefile that fairly simple.  It provides one target (=ci=)—invoked with the command “make ci”—that you can use to test and analyse the code.  The =ci= target invokes the =test= and =cs= targets which, in turn invoke tests with [[https://phpunit.de/][phpunit]] and the [[https://www.mediawiki.org/wiki/Parser_tests][MediaWiki parser test framework]] and then the code analysis tools [[https://squizlabs.github.io/PHP_CodeSniffer/analysis/][PHP CodeSniffer]], [[https://phpstan.org/][PHPStan]], and [[https://psalm.dev/][Psalm]], respectively.
-
-The makefile here captures several commands and makes execution of them simple.  For any extension that has unit tests and parser tests, this makefile will take care of them.
+The makefile here captures several commands and makes execution of them simple—just type =make= and away you go!  For any extension that has unit tests and parser tests, this makefile will take care of them.
 
 ** Example with SemanticOrganization
 
-I've forked the [[https://github.com/thaider/SemanticOrganization][SemanticOrganization extension]] and copied the Makefile from ProfessionalWiki's ExternalContent repository into it
+I've forked the [[https://github.com/thaider/SemanticOrganization][SemanticOrganization extension]] and copied the =Makefile= from ProfessionalWiki's ExternalContent repository into it
 
 #+begin_src sh
 wget https://raw.githubusercontent.com/ProfessionalWiki/ExternalContent/master/Makefile
@@ -56,22 +58,22 @@ Could not read "phpunit.xml.dist".
 make: *** [Makefile:8: phpunit] Error 1
 #+end_src
 
-Well, this exactly what makefiles are made for, fulfilling dependencies.  Let's add a target so that if the phpunit.xml.dist is missing, we create one:
+It fails because there is no =phpunit.xml.dist= file.  Well, this exactly what makefiles are made for, fulfilling dependencies.  Let's add a target so that if the =phpunit.xml.dist= is missing, we create one:
 
 #+begin_src makefile
 phpunit.xml.dist:
-	(																								\
-		echo '<phpunit colors="true">'															&&	\
-		echo '<testsuites>'																		&&	\
-		echo '<testsuite name="All">'															&&	\
-		echo '<directory>tests</directory>'												&&	\
-		echo '</testsuite>'																		&&	\
-		echo '</testsuites>'																	&&	\
-		echo '</phpunit>'																			\
+	(																	\
+		echo '<phpunit colors="true">'			&&	\
+		echo '<testsuites>'							&&	\
+		echo '<testsuite name="All">'			&&	\
+		echo '<directory>tests</directory>'	&&	\
+		echo '</testsuite>'								&&	\
+		echo '</testsuites>'							&&	\
+		echo '</phpunit>'								\
 	) > $@
 #+end_src
 
-This is suitably generic and will just run all the phpunit files found in the tests directory.  There are none right now, though, so no tests are executed.
+This is suitably generic and will just run all the phpunit files found in the =tests= directory.  There are none right now, though, so no tests are executed.
 
 (It should be noted here that in this presentation, I'm only showing how to use makefiles, not how to write tests. Writing tests or providing more than the basic framework is left as an exercise for the developer.)
 
@@ -100,19 +102,46 @@ MWException from line 64 of .../tests/parser/TestFileReader.php: Couldn't open f
 make: *** [Makefile:20: parser] Error 1
 #+end_src
 
-Again, we are missinsg a file.  This time, though, it is the =parserTests.txt= file.  Since there is no use running parser tests if none exist and it is easier to check for the existance of a file, lets add that codition to the parser target:
+Again, we are missinsg a file.  This time, though, it is the =parserTests.txt= file.  Since there is no use running parser tests if none exist and it is easier to check for the existance of a file, lets add that condition to the parser target:
 
 #+begin_src makefile
 parser:
-	test ! -f tests/parser/parserTests.txt														||	\
-		php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
+	test ! -f tests/parser/parserTests.txt					||	\
+		php ${MW_INSTALL_PATH}/tests/parser/parserTests.php		\
+			--file=tests/parser/parserTests.txt
 #+end_src
 
-A makefile will stop executing if a shell command returns a false value.  This means that we have to test for the thing that would cause our parser tests to fail — no =parserTests.txt= — and then run the tests if the tests for non-existance fails.
+A makefile will stop executing if a shell command returns a false value.  This means that we have to test for the thing that would cause our parser tests to fail—if the =parserTests.txt= file isn't around—and then run the tests if the tests for non-existance fails.
 
 ** After /n/ runs
 We've changed the simple makefile to check for the support files before running the checks.
+#+begin_src makefile
+phpunit:
+	test ! -f phpunit.xml.dist								||	\
+		php ${MW_INSTALL_PATH}/tests/phpunit/phpunit.php		\
+			-c phpunit.xml.dist
 
+phpcs:
+	test ! -f phpcs.xml									||	(	\
+		cd ${MW_INSTALL_PATH}								&&	\
+		vendor/bin/phpcs -p -s									\
+			--standard=$(shell pwd)/phpcs.xml					\
+	)
+
+stan:
+	test ! -f phpstan.neon									||	\
+		${MW_INSTALL_PATH}/vendor/bin/phpstan analyse			\
+			--configuration=phpstan.neon --memory-limit=2G
+
+psalm:
+	test ! -f psalm.xml										||	\
+		${MW_INSTALL_PATH}/vendor/bin/psalm --config=psalm.xml
+
+parser:
+	test ! -f tests/parser/parserTests.txt					||	\
+		php ${MW_INSTALL_PATH}/tests/parser/parserTests.php		\
+			--file=tests/parser/parserTests.txt
+#+end_src
 This means we can execute =make= without any errors.  Good.
 
 The core of the file is still pretty simple, very similar to the original from ProfessionalWiki, but now it should be able to run in any MediaWiki extension that follows some simple standard layout conventions and will adapt to if the extension has phpunit tests or not, parser tests or not, etc.
@@ -152,7 +181,7 @@ But so far, our makefile has depended upon a MediaWiki that is already checked o
 
 Containers (of course!)
 
-Let's copy the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/master/.github/workflows/main.yml][main.yml file from SemanticMediaWiki]] and tweak it for our own use.  It really doesn't take much, just change the =EXT_NAME= env section to our extension, modify the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/1348700de6427c5a7445bdaf4f6bb1a287e6ae95/.github/workflows/main.yml#L78][construction of the composer.local.json]], and away we go!
+Let's copy the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/master/.github/workflows/main.yml][=main.yml= file from SemanticMediaWiki]] and tweak it for our own use.  It really doesn't take much, just change the =EXT_NAME= env section to our extension, modify the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/1348700de6427c5a7445bdaf4f6bb1a287e6ae95/.github/workflows/main.yml#L78][construction of the composer.local.json]], and away we go!
 
 Finally, let's change the [[https://github.com/hexmode/SemanticOrganization/blob/b13f6242f48d6c5893497c6818bd2b325e0e3369/.github/workflows/main.yml#L112][last step]], where the tests are run, to invoke our make file.
 
@@ -162,9 +191,40 @@ Finally, let's change the [[https://github.com/hexmode/SemanticOrganization/blob
 
 Good point.  While a container is use to set up the filesystem for the running the tests, the Github workflow takes the time to set up a database for the wiki and create a =LocalSettings.php= file.
 
-This means that there is a consistent, predictable test setup for Github runs, but on our local system we're still depending on whatever development setup we have in place.  We'd like to use the same setup for both Github and our local development.  To do that, we'll first copy the steps from the Github steps in [[https://github.com/hexmode/SemanticOrganization/commit/7d9e6788c4178233f66b2cb851773cb33a7e1bd8][main.yml to our Makefile]].
+This means that there is a consistent, predictable test setup for Github runs, but on our local system we're still depending on whatever development setup we have in place.  We'd like to use the same setup for both Github and our local development.  To do that, we'll first copy the steps from the Github steps in [[https://github.com/hexmode/SemanticOrganization/commit/7d9e6788c4178233f66b2cb851773cb33a7e1bd8][=main.yml= to our =Makefile=]].
 
-After we're sure that [[https://github.com/hexmode/SemanticOrganization/runs/4438835177][it still works on GitHub]], let's set our makefile so that when it is run locally.  We can do this using the [[https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables][GITHUB_ACTIONS environment variable]].  When it is set to true, we're running on Github.  So we'll make sure it defaults to false.
+After we're sure that [[https://github.com/hexmode/SemanticOrganization/runs/4438835177][it still works on GitHub]], let's set our makefile so that when it is run locally.  We can do this using the [[https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables][=GITHUB_ACTIONS= environment variable]].  When it is set to =true=, we're running on Github.  So we'll make sure it defaults to false.
+
+If =GITHUB_ACTIONS= is =true=, we'll set =IN_CONTAINER= to =true=.  We'll do this so that we can just use =IN_CONTAINER= to figure out if we're in a container.  This will help if we want to use this script on a Gitlab CI instance since we'll just use the [[https://docs.gitlab.com/ee/ci/variables/predefined_variables.html#predefined-variables-reference][=GITLAB_CI= environment variable]] to set set =IN_CONTAINER= to =true=.
+
+We'll then check =IN_CONTAINER= in our =Makefile= and, if it isn't defined, set up a container and re-run the =Makefile= inside the container.
+
+#+begin_src makefile
+ifeq ("${GITHUB_ACTIONS}","true")
+IN_CONTAINER := true
+endif
+
+ifeq ("${GITLAB_CI}","true")
+IN_CONTAINER := true
+endif
+
+ifeq ("${IN_CONTAINER}","true")
+include Makefile.inContainer
+
+else
+
+ifneq ("$(word 1,${MAKECMDGOALS})","inContainer")
+$(word 1,${MAKECMDGOALS}):
+	${MAKE} inContainer goals="${MAKECMDGOALS}"
+endif
+
+inContainer:
+	${MAKE} ${goals} IN_CONTAINER=true
+
+endif
+#+end_src
+
+All that is left to do now is to put have the =inContainer= target create a container to run the Makefile in.
 
 # Local Variables:
 # org-src-preserve-indentation: t

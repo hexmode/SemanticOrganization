@@ -2,10 +2,8 @@ ifndef VERBOSE
 .SILENT:
 endif
 
-.PHONY: ci test cs phpunit phpcs stan psalm parser verifyExtName
-
-MW_INSTALL_PATH  ?= /var/www/html
 EXT_NAME         ?= ext-name-not-set
+
 MW_INSTALL_PATH  ?= /var/www/html
 MW_EXT_PATH      ?= /var/www/html/extensions
 DB_ROOT_USER     ?= root
@@ -16,125 +14,124 @@ MW_DB_PATH       ?= /var/www/data
 MW_DB_USER       ?= wiki
 MW_DB_PWD        ?= wiki
 MW_DB_NAME       ?= wiki
+
+MW_VER           ?= 1.35
 COMPOSER_VERSION ?= 2
+
 IN_CONTAINER     ?= false
 
-# If this is being run on github, then we're in a container and
+# If this is being run on Github, then we're in a container and
 # GITHUB_ACTIONS is true.
 ifeq ("${GITHUB_ACTIONS}","true")
 IN_CONTAINER := true
 endif
 
-# If we're in a container then use the default set of targets.
-# Scroll down to the line that starts with "else" to see what
-# happens if we are not in a container.
+# Ditto for Gitlab, except we'll check for GITLAB_CI.
+ifeq ("${GITLAB_CI}","true")
+IN_CONTAINER := true
+endif
+
+# If we're in a container then use the targets in the
+# Makefile.inContainer file
 ifeq ("${IN_CONTAINER}","true")
-ci: test cs
-test: phpunit parser
-cs: phpcs stan psalm
-
-phpunit:
-	test ! -f phpunit.xml.dist								||	\
-		php ${MW_INSTALL_PATH}/tests/phpunit/phpunit.php		\
-			-c phpunit.xml.dist
-
-phpcs:
-	test ! -f phpcs.xml									||	(	\
-		cd ${MW_INSTALL_PATH}								&&	\
-		vendor/bin/phpcs -p -s									\
-			--standard=$(shell pwd)/phpcs.xml					\
-	)
-
-stan:
-	test ! -f phpstan.neon									||	\
-		${MW_INSTALL_PATH}/vendor/bin/phpstan analyse			\
-			--configuration=phpstan.neon --memory-limit=2G
-
-psalm:
-	test ! -f psalm.xml										||	\
-		${MW_INSTALL_PATH}/vendor/bin/psalm --config=psalm.xml
-
-parser:
-	test ! -f tests/parser/parserTests.txt					||	\
-		php ${MW_INSTALL_PATH}/tests/parser/parserTests.php		\
-			--file=tests/parser/parserTests.txt
-
-verifyExtName:
-	test "${EXT_NAME}" != "ext-name-not-set"				||	(	\
-		echo "You must set EXT_NAME to use this Makefile."	&&	\
-		exit 1													\
-	)
-
-getComposer:
-	apt update
-	apt install -y unzip
-	php -r "copy('https://getcomposer.org/installer', 			\
-			'installer');"
-	php -r "copy('https://composer.github.io/installer.sig',	\
-			 'expected');"
-	echo `cat expected` " installer" | sha384sum -c -
-	php installer --${COMPOSER_VERSION}
-	rm -f installer expected
-	mv composer.phar /usr/local/bin/composer
-
-mediaWikiComposerUpdate:
-	COMPOSER=composer.local.json composer require --no-update	\
-		--working-dir ${MW_INSTALL_PATH}						\
-		mediawiki/semantic-media-wiki @dev
-	composer update --working-dir ${MW_INSTALL_PATH}
-
-mediaWikiInstall: verifyExtName
-	php ${MW_INSTALL_PATH}/maintenance/install.php				\
-		--pass=Password123456									\
-		--server="http://localhost:8000"						\
-		--scriptpath=""											\
-		--dbtype=${MW_DB_TYPE}									\
-		--dbserver=${MW_DB_SERVER}								\
-		--installdbuser=${DB_ROOT_USER}							\
-		--installdbpass=${DB_ROOT_PWD}							\
-		--dbname=${MW_DB_NAME}									\
-		--dbuser=${MW_DB_USER}									\
-		--dbpass=${MW_DB_PWD}									\
-		--dbpath=${MW_DB_PATH}									\
-		--extensions=SemanticMediaWiki,${EXT_NAME}				\
-		${EXT_NAME}-test WikiSysop
-
-
-enableDebugOutput:
-	(															\
-		echo 'error_reporting(E_ALL| E_STRICT);'			&&	\
-		echo 'ini_set("display_errors", 1);'				&&	\
-		echo '$$wgShowExceptionDetails = true;'				&&	\
-		echo '$$wgDevelopmentWarnings = true;'					\
-	) >> ${MW_INSTALL_PATH}/LocalSettings.php
-
-installSemanticMediaWiki:
-	echo "enableSemantics( 'localhost' );"					>>  \
-		${MW_INSTALL_PATH}/LocalSettings.php
-	tail -n5 ${MW_INSTALL_PATH}/LocalSettings.php
-	php ${MW_INSTALL_PATH}/maintenance/update.php --quick
-
-testTwo:
-	echo $@
-
-testOne:
-	echo $@
+include Makefile.inContainer
 
 else
 # We are not in a container (or, at least, IN_CONTAINER is not
-# set).  In this case, since we want the other targets to only be
-# used in a container, we'll set up the container and call
-# ourself in the container.
+# set to true).  In this case, since we want the other targets to
+# only be used in a container, we'll set up the container and
+# call ourself in the container.
 
 # Since MAKECMDGOALS contains whatever the first target is, we
 # make the first target from the command line our default target
 # (but only if we aren't already calling "inContainer").
+
 ifneq ("$(word 1,${MAKECMDGOALS})","inContainer")
+.PHONY: $(word 1,${MAKECMDGOALS})
 $(word 1,${MAKECMDGOALS}):
 	${MAKE} inContainer goals="${MAKECMDGOALS}"
 endif
 
-inContainer:
-	${MAKE} ${goals} IN_CONTAINER=true
+containerID := docker.io/library/mediawiki:${MW_VER}
+containerName ?= ${EXT_NAME}-mediawiki
+dockerCli ?= sudo docker
+copyVars := EXT_NAME MW_INSTALL_PATH MW_EXT_PATH DB_ROOT_USER	\
+	DB_ROOT_PWD MW_DB_TYPE MW_DB_SERVER MW_DB_PATH MW_DB_USER	\
+	MW_DB_PWD MW_DB_NAME MW_VER COMPOSER_VERSION
+SHELL := /bin/bash
+ciPath ?= ${PWD}/conf/${MW_VER}
+ciExtPath ?= ${ciPath}/extensions
+lsPath ?= ${ciPath}/LocalSettings.php
+goals ?= ci
+
+mirrorPath ?= ${ciPath}/mirror
+extJsonJson ?= ${mirrorPath}/extjsonuploader.toolforge.org/ExtensionJson.json
+extJsonJsonSrc ?= https://extjsonuploader.toolforge.org/ExtensionJson.json
+mwDotComposer ?= ${ciPath}/dot-composer
+mwVendor ?= ${ciPath}/vendor
+smwGitUrl ?= "https://github.com/SemanticMediaWiki/SemanticMediaWiki.git"
+
+mounts := "${PWD}:/target"										\
+			"${mwDotComposer}:/root/.cache/composer"			\
+			"${mwVendor}:${MW_INSTALL_PATH}/vendor"				\
+			"${ciExtPath}/SemanticMediaWiki:${MW_EXT_PATH}/SemanticMediaWiki"
+
+.PHONY: inContainer
+inContainer: ${lsPath} ${mwVendor}
+	${dockerCli} run --rm -w /target							\
+		$(foreach mount,${mounts},-v ${mount})					\
+		--env-file <(env -i										\
+			$(foreach var,${copyVars},${var}=$(${var})))		\
+		${containerID}											\
+			${MAKE} -f Makefile.inContainer setupLinks ${goals}
+
+${lsPath}: ${mwVendor} ${ciExtPath}/SemanticMediaWiki
+	test -f ${lsPath}									||	(	\
+		cid=`${dockerCli} create								\
+			$(foreach mount,${mounts},-v ${mount})				\
+			--env-file <(env -i									\
+				$(foreach var,${copyVars},${var}=$(${var})))	\
+			${containerID}`									&&	\
+		${dockerCli} start $$cid							&&	\
+		${dockerCli} exec -w /target $$cid						\
+				${MAKE} -f Makefile.inContainer					\
+					getComposer 								\
+					mediaWikiComposerUpdate						\
+					setupLinks									\
+					mediaWikiInstall							\
+					enableDebugOutput							\
+					installSemanticMediaWiki				&&	\
+		${dockerCli} rm -f $$cid								\
+	)
+	touch $@
+
+${mwVendor}: ${ciPath}
+	test -d ${mwVendor}									||	(	\
+		cid=`${dockerCli} create ${containerID}`			&&	\
+		${dockerCli} cp "$$cid:${MW_INSTALL_PATH}/vendor"		\
+			${mwVendor}										&&	\
+		${dockerCli} rm -f $$cid								\
+	)
+	touch $@
+
+${ciPath}:
+	mkdir -p $@
+
+${ciExtPath}/SemanticMediaWiki:
+	git clone ${smwGitUrl} $@
+	touch $@
+
+${extJsonJson}:
+	test -d ${mirrorPath}									||	\
+		mkdir -p ${mirrorPath}
+	older=$(shell find $@ -mmin +120 | wc -l)				&&	\
+	test $$older -ne 1									||	(	\
+		cd ${mirrorPath}									&&	\
+		wget --mirror ${extJsonJsonSrc}							\
+	)
 
 endif
+# Local Variables:
+# eval: (display-fill-column-indicator-mode)
+# eval: (set (make-local-variable 'fill-column) 65)
+# End:

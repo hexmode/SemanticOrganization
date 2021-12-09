@@ -1,5 +1,7 @@
 !*.gitkeep
 .env
+.envrc
+conf
 mix-manifest.json
 package-lock.json
 yarn.lock
