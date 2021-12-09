@@ -1,0 +1,10 @@
+!! Version 2
+
+!! test
+semorg-person
+!! wikitext
+{{#semorg-person}}
+!! html
+<p>{{#semorg-person}}
+</p>
+!! end

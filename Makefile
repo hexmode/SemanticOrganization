@@ -61,6 +61,7 @@ copyVars := EXT_NAME MW_INSTALL_PATH MW_EXT_PATH DB_ROOT_USER	\
 SHELL := /bin/bash
 ciPath ?= ${PWD}/conf/${MW_VER}
 ciExtPath ?= ${ciPath}/extensions
+ciDataPath ?= ${ciPath}/data
 lsPath ?= ${ciPath}/LocalSettings.php
 goals ?= ci
 
@@ -74,6 +75,7 @@ smwGitUrl ?= "https://github.com/SemanticMediaWiki/SemanticMediaWiki.git"
 mounts := "${PWD}:/target"										\
 			"${mwDotComposer}:/root/.cache/composer"			\
 			"${mwVendor}:${MW_INSTALL_PATH}/vendor"				\
+			"${ciDataPath}:${MW_DB_PATH}"						\
 			"${ciExtPath}/SemanticMediaWiki:${MW_EXT_PATH}/SemanticMediaWiki"
 
 .PHONY: inContainer
@@ -86,6 +88,8 @@ inContainer: ${lsPath} ${mwVendor}
 			${MAKE} -f Makefile.inContainer setupLinks ${goals}
 
 ${lsPath}: ${mwVendor} ${ciExtPath}/SemanticMediaWiki
+	mkdir -p ${ciDataPath}
+	chmod 1777 ${ciDataPath}
 	cid=`${dockerCli} create									\
 		$(foreach mount,${mounts},-v ${mount})					\
 		--env-file <(env -i										\

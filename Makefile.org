@@ -10,8 +10,6 @@ I suspect this is because people developing with dynamic languages think of them
 
 But makefiles can be a very good way to organize a set of shell commands so that they can be executed reliably.
 
-I'll demonstrate this using [[https://github.com/hexmode/SemanticOrganization/][my fork of the SemanticOrganization extension]].
-
 * The makefile
 
 ProfessionalWiki has a makefile that fairly simple. It provides one target (=ci=)—invoked with the command “make ci”—that you can use to test and analyse the code. The =ci= target invokes the =test= and =cs= targets which, in turn invoke tests with [[https://phpunit.de/][phpunit]] and the [[https://www.mediawiki.org/wiki/Parser_tests][MediaWiki parser test framework]] and then the code analysis tools [[https://squizlabs.github.io/PHP_CodeSniffer/analysis/][PHP CodeSniffer]], [[https://phpstan.org/][PHPStan]], and [[https://psalm.dev/][Psalm]], respectively.
@@ -43,11 +41,7 @@ The makefile here captures several commands and makes execution of them simple�
 
 ** Example with SemanticOrganization
 
-I've forked the [[https://github.com/thaider/SemanticOrganization][SemanticOrganization extension]] and copied the =Makefile= from ProfessionalWiki's ExternalContent repository into it
-
-#+begin_src sh
-wget https://raw.githubusercontent.com/ProfessionalWiki/ExternalContent/master/Makefile
-#+end_src
+To demonstrate this, I've forked the [[https://github.com/thaider/SemanticOrganization][SemanticOrganization extension]] and copied the =Makefile= from ProfessionalWiki's ExternalContent repository into it
 
 ** First make run:
 
@@ -64,13 +58,13 @@ It fails because there is no =phpunit.xml.dist= file. Well, this exactly what ma
 
 #+begin_src makefile
 phpunit.xml.dist:
-	(																	\
+	(																		\
 		echo '<phpunit colors="true">'			&&	\
-		echo '<testsuites>'							&&	\
+		echo '<testsuites>'								&&	\
 		echo '<testsuite name="All">'			&&	\
 		echo '<directory>tests</directory>'	&&	\
-		echo '</testsuite>'							&&	\
-		echo '</testsuites>'							&&	\
+		echo '</testsuite>'								&&	\
+		echo '</testsuites>'								&&	\
 		echo '</phpunit>'										\
 	) > $@
 #+end_src
@@ -108,72 +102,46 @@ Again, we are missing a file. This time, though, it is the =parserTests.txt= fil
 
 #+begin_src makefile
 parser:
-	test ! -f tests/parser/parserTests.txt					||	\
-		php ${MW_INSTALL_PATH}/tests/parser/parserTests.php		\
+	test ! -f tests/parser/parserTests.txt										||	\
+		php ${MW_INSTALL_PATH}/tests/parser/parserTests.php	\
 			--file=tests/parser/parserTests.txt
 #+end_src
 
 A makefile will stop executing if a shell command returns a false value. This means that we have to test for the thing that would cause our parser tests to fail—if the =parserTests.txt= file isn't around—and then run the tests if the tests for non-existance fails.
 
 ** After /n/ runs
+
 We've changed the simple makefile to check for the support files before running the checks.
 #+begin_src makefile
 phpunit:
-	test ! -f phpunit.xml.dist								||	\
+	test ! -f phpunit.xml.dist															||	\
 		php ${MW_INSTALL_PATH}/tests/phpunit/phpunit.php		\
 			-c phpunit.xml.dist
 
 phpcs:
-	test ! -f phpcs.xml									||	(	\
-		cd ${MW_INSTALL_PATH}								&&	\
-		vendor/bin/phpcs -p -s									\
-			--standard=$(shell pwd)/phpcs.xml					\
+	test ! -f phpcs.xml																||	(	\
+		cd ${MW_INSTALL_PATH}											&&	\
+		vendor/bin/phpcs -p -s															\
+			--standard=$(shell pwd)/phpcs.xml									\
 	)
 
 stan:
-	test ! -f phpstan.neon									||	\
+	test ! -f phpstan.neon																||	\
 		${MW_INSTALL_PATH}/vendor/bin/phpstan analyse			\
 			--configuration=phpstan.neon --memory-limit=2G
 
 psalm:
-	test ! -f psalm.xml										||	\
+	test ! -f psalm.xml																	||	\
 		${MW_INSTALL_PATH}/vendor/bin/psalm --config=psalm.xml
 
 parser:
-	test ! -f tests/parser/parserTests.txt					||	\
-		php ${MW_INSTALL_PATH}/tests/parser/parserTests.php		\
+	test ! -f tests/parser/parserTests.txt										||	\
+		php ${MW_INSTALL_PATH}/tests/parser/parserTests.php	\
 			--file=tests/parser/parserTests.txt
 #+end_src
 This means we can execute =make= without any errors. Good.
 
 The core of the file is still pretty simple, very similar to the original from ProfessionalWiki, but now it should be able to run in any MediaWiki extension that follows some simple standard layout conventions and will adapt to if the extension has phpunit tests or not, parser tests or not, etc.
-
-#+begin_src makefile
-ci: test cs
-test: phpunit parser
-cs: phpcs stan psalm
-
-phpunit:
-	test ! -f phpunit.xml.dist														||	\
-		php ../../tests/phpunit/phpunit.php -c phpunit.xml.dist
-
-phpcs:
-	test ! -f phpcs.xml															||	(	\
-		cd ../..																	&&	\
-		vendor/bin/phpcs -p -s --standard=$(shell pwd)/phpcs.xml						)
-
-stan:
-	test ! -f phpstan.neon															||	\
-		../../vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=2G
-
-psalm:
-	test ! -f psalm.xml																||	\
-		../../vendor/bin/psalm --config=psalm.xml
-
-parser:
-	test ! -f tests/parser/parserTests.txt											||	\
-		php ../../tests/parser/parserTests.php --file=tests/parser/parserTests.txt
-#+end_src
 
 ** But what about running on Github?
 
@@ -183,9 +151,53 @@ But so far, our makefile has depended upon a MediaWiki that is already checked o
 
 Containers (of course!)
 
-Let's copy the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/master/.github/workflows/main.yml][=main.yml= file from SemanticMediaWiki]] and tweak it for our own use. It really doesn't take much, just change the =EXT_NAME= env section to our extension, modify the [[https://github.com/SemanticMediaWiki/SemanticMediaWiki/blob/1348700de6427c5a7445bdaf4f6bb1a287e6ae95/.github/workflows/main.yml#L78][construction of the composer.local.json]], and away we go!
+You can see the main.yml file in my forked repository, but the important bit is that, except for the bit to check out and link the extension, I'm simply using the makefile targets. Anytime I change the makefile target, (for example, if I change =make ci=) then, after I have it working successfully on my local machine, I just push those changes—without making any to the main.yml—and my github CI is updated.
+#+begin_src yaml
+    steps:
+      - name: Checkout Extension
+        uses: actions/checkout@v2
+        with:
+          repository: hexmode/${{ env.EXT_NAME }}
+          path: ${{ env.EXT_NAME }}
 
-Finally, let's change the [[https://github.com/hexmode/SemanticOrganization/blob/b13f6242f48d6c5893497c6818bd2b325e0e3369/.github/workflows/main.yml#L112][last step]], where the tests are run, to invoke our make file.
+      - name: Symlink extension
+        run: |
+          mkdir -p ${{ env.MW_EXT_PATH }}
+          ln -s `pwd`/${{ env.EXT_NAME }}                                      \
+            ${{ env.MW_EXT_PATH }}/${{ env.EXT_NAME }}
+          ls -ld ${{ env.MW_EXT_PATH }}/${{ env.EXT_NAME }}
+
+      - name: Get Composer
+        run: |
+          cd ${{ env.EXT_NAME }}
+          make getComposer
+
+      - name: MediaWiki Composer Update
+        run: |
+          cd ${{ env.EXT_NAME }}
+          make mediaWikiComposerUpdate
+
+      - name: MediaWiki Install
+        run: |
+          cd ${{ env.EXT_NAME }}
+          make mediaWikiInstall
+
+      - name: Enable Debug Output
+        run: |
+          cd ${{ env.EXT_NAME }}
+          make enableDebugOutput
+
+      - name: Install SemanticMediaWiki
+        run: |
+          cd ${{ env.EXT_NAME }}
+          make installSemanticMediaWiki
+
+      - name: Run Tests
+        run: |
+          cd ${{ env.EXT_NAME }}
+          make ci
+
+#+end_src
 
 [[https://github.com/hexmode/SemanticOrganization/runs/4424862019][Works like a dream]].
 
@@ -193,11 +205,15 @@ Finally, let's change the [[https://github.com/hexmode/SemanticOrganization/blob
 
 Good point. While a container is use to set up the filesystem for the running the tests, the Github workflow takes the time to set up a database for the wiki and create a =LocalSettings.php= file.
 
-This means that there is a consistent, predictable test setup for Github runs, but on our local system we're still depending on whatever development setup we have in place. We'd like to use the same setup for both Github and our local development. To do that, we'll first copy the steps from the Github steps in [[https://github.com/hexmode/SemanticOrganization/commit/7d9e6788c4178233f66b2cb851773cb33a7e1bd8][=main.yml= to our =Makefile=]].
+This means that there is a consistent, predictable test setup for Github runs, but on our local system we're still depending on whatever development setup we have in place. We'd like to use the same setup for both Github and our local development.
 
-After we're sure that [[https://github.com/hexmode/SemanticOrganization/runs/4438835177][it still works on GitHub]], let's set our makefile so that when it is run locally. We can do this using the [[https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables][=GITHUB_ACTIONS= environment variable]]. When it is set to =true=, we're running on Github. So we'll make sure it defaults to false.
+Let's set our makefile so that when it is run locally, it sets up a container and then runs the Makefile we have in the container, but with an =IN_CONTAINER= variable set.
 
-If =GITHUB_ACTIONS= is =true=, we'll set =IN_CONTAINER= to =true=. We'll do this so that we can just use =IN_CONTAINER= to figure out if we're in a container. This will help if we want to use this script on a Gitlab CI instance since we'll just use the [[https://docs.gitlab.com/ee/ci/variables/predefined_variables.html#predefined-variables-reference][=GITLAB_CI= environment variable]] to set set =IN_CONTAINER= to =true=.
+We'll also set the =IN_CONTAINER= variable with we're running on github or gitlab.
+
+We can do this using the [[https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables][=GITHUB_ACTIONS= environment variable]]. When it is set to =true=, we're running on Github. So we'll make sure it defaults to false.
+
+Similarly, on Gitlab, we can check for the [[https://docs.gitlab.com/ee/ci/variables/predefined_variables.html#predefined-variables-reference][=GITLAB_CI= environment variable]].  If it is set to =true=, we'll set =IN_CONTAINER= to =true=.
 
 We'll then check =IN_CONTAINER= in our =Makefile= and, if it isn't defined, set up a container and re-run the =Makefile= inside the container.
 
